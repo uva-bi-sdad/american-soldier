@@ -19,6 +19,8 @@ h1, h2, h3 {
 
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+rm(list = ls()) 
+
 knitr::opts_chunk$set(echo = F, fig.width = 8, fig.height = 6)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) ;
 
@@ -83,20 +85,17 @@ text78_df <- tibble(row = 1:nrow(S32W), text = S32W$long) #Written response on o
 textn_df <- tibble(row = 1:nrow(S32N), text = S32N$long)
 ```
 
-# Social Network Analysis
+# for white soldiers we have:
+1. their survey response for the outfits question
+2. their commentary on the outfits question
+3. a longer commentary question on the general survey
 
-## Gephi Networks
-```{r sna, echo=FALSE, message=FALSE, warning=FALSE}
-
-```
-
-## Social Networks with Unionized Terminology
-Something that is important to us is soldiers' dicussions of inner-outer groups of people. A way that we decided to look at that was by unionizing biterms. For example, a naive co-occurence with "black" may be "people" but we care about the dicussion of "black people" rather than just the identification of "people" as co-occurring with the word "black". To do this we complete several unionizations of biterms to create co-occurrence networks of dicussions of groups of people.
-
-### Long Responses
-We complete unionized term co-occurences and social networks using long response textual data. We separate our analysis by race and report co-occurences and co-occurence networks for both black and white soldiers.
+# for black soldiers we have: 
+1. a longer commentary question on the general survey
 
 ```{r unions, echo = FALSE, message=FALSE, warning=FALSE}
+
+# this takes the long response for black soldiers and tokenizes the df 
 row_n_words <- textn_df %>%
   mutate(section = row_number()) %>%
   filter(section > 0) %>%
@@ -107,6 +106,7 @@ row_n_words <- textn_df %>%
   mutate(word= textstem::lemmatize_words(word)) %>%
   mutate(word= wordStem(word))
 
+# cleans all of the stemming to make the visuals more interpretable 
 row_n_words <- row_n_words %>% 
   mutate(word = ifelse(str_detect(word, "\\b(?i)(bu)\\b"), "bus", word)) %>% 
   mutate(word = ifelse(str_detect(word, "\\b(?i)(segreg)\\b"), "segregation", word)) %>% 
@@ -178,330 +178,211 @@ row_n_words <- row_n_words %>%
   mutate(word = ifelse(str_detect(word, "\\b(?i)(mechan)\\b"), "mechanic", word)) %>% 
   mutate(word = ifelse(str_detect(word, "\\b(?i)(discharg)\\b"), "discharge", word)) %>% 
   mutate(word = ifelse(str_detect(word, "\\b(?i)(infrantri)\\b"), "infrantry", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(moral)\\b"), "morale", word)) %>%
   mutate(word = ifelse(str_detect(word, "\\b(?i)(carri)\\b"), "carry", word)) #%>% 
   #count(word) %>% 
   #arrange(-n)
-  
-
-
-```
-
-```{r}
 
 # count words co-occuring within sections
 word_pairs_n <- row_n_words %>%
   pairwise_count(word, section, sort = TRUE)
 
+# filters the words not freq used 
 word_cors_n <- row_n_words %>%
   group_by(word) %>%
   filter(n() >= 20) %>%
   pairwise_cor(word, section, sort = TRUE) %>%
   filter(correlation > .1)
-# write.csv(word_cors_n, "clean_black_long_edge_occur.csv")
-#visualizes correlation network
-# word_cors_n %>%
-#   simpleNetwork(fontSize = 12, zoom =T)
 
-# colorman, whiteman, coloredsoldi, negrosoldi, whitesoldi
-word_cors_n %>%
-  filter(item1 %in% c("black-man", "white-man")) %>%
-  group_by(item1) %>%
-  filter(item2 != "black-man") %>%
-  filter(item2 != "white-man") %>%
-  filter(item2 != "negro") %>%
-  filter(item2 != "white") %>%
-  filter(item2 != "color") %>%
-  filter(item2 != "south") %>%
-  filter(item2 != "southern") %>%
-  top_n(6) %>%
-  ungroup() %>%
-  mutate(item2 = reorder(item2, correlation)) %>%
-  mutate(item1 = reorder(item1, correlation)) %>%
-  ggplot(aes(item2, correlation)) +
-  geom_bar(stat = "identity", fill = "#E57200") +
-  xlab("Co-Occurring Word") +
-  facet_wrap(~ item1, scales = "free") +
-  ggtitle("Co-Occurences with Terms for Black Males and White Males \nfrom Black Soldiers' Long Responses") +
-  coord_flip() +
-  theme_minimal()
-
-set.seed(2016)
-word_cors_n %>%
-  filter(correlation > .1) %>%
-  graph_from_data_frame() %>%
-  ggraph(layout = "fr") +
-  geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
-  geom_node_point(color = "#E57200", size = 5) +
-  #geom_node_text(aes(label = name), repel = TRUE) +
-  ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 15 percent Threshold") +
-  theme_void()
-```
-
-```{r}
-check <- simplify(graph.data.frame(word_cors_n, directed = FALSE), 
+# de-duplicates the edgelist
+remove_dups <- igraph::simplify(graph.data.frame(word_cors_n, directed = FALSE), 
                               edge.attr.comb = igraph_opt("edge.attr.comb"),
                               remove.loops = FALSE)
-double_check <- data.frame(as_edgelist(check, names = TRUE))
+remove_dups <- data.frame(as_edgelist(remove_dups, names = TRUE))
 
-triple_check <- double_check %>% 
+corr_edgelist <- remove_dups %>% 
   rename(item1 = X1, item2 = X2) %>% 
   left_join(word_cors_n, by = c("item1", "item2")) %>% 
   arrange(-correlation)
 
-triple_check %>%
-  filter(correlation > .1) %>%
+# removes the numbers 
+number_list <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15")
+corr_edgelist_n <- corr_edgelist %>% 
+  rename(source = item1, target = item2, weight = correlation) %>%  
+  filter(!(source %in% number_list) & !(target %in% number_list)) 
+
+# quick look at the network 
+set.seed(2016)
+corr_edgelist_n %>%
+  filter(weight > .1) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
-  geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
+  geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
   geom_node_point(color = "#E57200", size = 5) +
   #geom_node_text(aes(label = name), repel = TRUE) +
-  ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 15 percent Threshold") +
+  ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 10% Threshold") +
   theme_void()
 
-number_list <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15")
-
-triple_check <- triple_check %>% 
-  rename(source = item1, target = item2, weight = correlation) %>%  
-  filter(!(source %in% number_list)) 
-
-
-write_csv(triple_check, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooccurences32n.csv")
+write_csv(corr_edgelist_n, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_n.csv")
 
 ```
 
 
+```{r unions, echo = FALSE, message=FALSE, warning=FALSE}
 
-
-# white long response
-row_78_words <- text78_df %>%
+# this takes the long response for black soldiers and tokenizes the df 
+row_n_words <- text78_df %>%
   mutate(section = row_number()) %>%
   filter(section > 0) %>%
+  mutate(text = ifelse(str_detect(text, "u.s."), "usa", text)) %>%
+  mutate(text = ifelse(str_detect(text, "don‚äôt"), "don't", text)) %>%
   unnest_tokens(word, text) %>%
   filter(!word %in% stop_words$word) %>%
   mutate(word= textstem::lemmatize_words(word)) %>%
   mutate(word= wordStem(word))
 
-word_pairs_78 <- row_78_words %>%
+# cleans all of the stemming to make the visuals more interpretable 
+row_n_words <- row_n_words %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(bu)\\b"), "bus", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(segreg)\\b"), "segregation", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(discrimin)\\b"), "discrimination", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(separ)\\b"), "separate", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(divis)\\b"), "division", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(emancip)\\b"), "emancipation", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(democraci)\\b"), "democracy", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(privedlag|privileg)\\b"), "privilege", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(realiz)\\b"), "realize", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackmal)\\b"), "black-man", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitemal)\\b"), "white-man", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackfemal)\\b"), "black-woman", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitefemal)\\b"), "white-woman", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(manpow)\\b"), "manpower", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(southern)\\b"), "south", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(northern)\\b"), "north", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(american|u.s.a|usa)\\b"), "america", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(approv)\\b"), "approve", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(forc)\\b"), "force", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(ignor)\\b"), "ignore", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(germani)\\b"), "german", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(jap)\\b"), "japan", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(divid)\\b"), "divide", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(hatr)\\b"), "hatred", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(rememb)\\b"), "remember", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(liberti)\\b"), "liberty", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(px|p.x)\\b"), "post-exchange", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(polic)\\b"), "police", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(mp|m.p)\\b"), "military-police", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(educ)\\b"), "educate", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(intellig)\\b"), "intelligence", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(defens)\\b"), "defense", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(practic)\\b"), "practice", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(volunt)\\b"), "volunteer", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(futur)\\b"), "future", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(enemi)\\b"), "enemies", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(polici)\\b"), "policy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(constitut)\\b"), "constitution", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(countri)\\b"), "country", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(armi)\\b"), "army", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(offic)\\b"), "office", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(servic)\\b"), "service", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(dai)\\b"), "day", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(chanc)\\b"), "chance", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(compani)\\b"), "company", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(condit)\\b"), "condition", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(leav)\\b"), "leave", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(pai)\\b"), "pay", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(famili)\\b"), "family", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(abil)\\b"), "ability", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(chang)\\b"), "change", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(prejudic)\\b"), "prejudice", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(monei)\\b"), "money", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(not't)\\b"), "not", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(suppos)\\b"), "suppose", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(victori)\\b"), "victory", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(opportun)\\b"), "opportunity", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(serv)\\b"), "serve", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(troubl)\\b"), "trouble", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(recreat)\\b"), "recreate", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(advanc)\\b"), "advance", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(peopl)\\b"), "people", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(marri)\\b"), "marry", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(prai)\\b"), "pray", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(ag)\\b"), "age", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(receiv)\\b"), "receive", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(promot)\\b"), "promotion", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(mechan)\\b"), "mechanic", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(discharg)\\b"), "discharge", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(infrantri)\\b"), "infrantry", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(moral)\\b"), "morale", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(carri)\\b"), "carry", word)) #%>% 
+  #count(word) %>% 
+  #arrange(-n)
+
+# count words co-occuring within sections
+word_pairs_n <- row_n_words %>%
   pairwise_count(word, section, sort = TRUE)
 
-word_cors_78 <- row_78_words %>%
+# filters the words not freq used 
+word_cors_n <- row_n_words %>%
   group_by(word) %>%
   filter(n() >= 20) %>%
   pairwise_cor(word, section, sort = TRUE) %>%
   filter(correlation > .1)
-# write.csv(word_cors_78, "clean_white_long_edge_occur.csv")
-#visualizes correlation network
-# word_cors_78 %>%
-#   simpleNetwork(fontSize = 12, zoom =T)
 
-# whiteman,
+# de-duplicates the edgelist
+remove_dups <- igraph::simplify(graph.data.frame(word_cors_n, directed = FALSE), 
+                              edge.attr.comb = igraph_opt("edge.attr.comb"),
+                              remove.loops = FALSE)
+remove_dups <- data.frame(as_edgelist(remove_dups, names = TRUE))
 
-word_cors_78 %>%
-  filter(item1 %in% c("whitemal", "blackmal")) %>%
-  group_by(item1) %>%
-  filter(item2 != "blackmal") %>%
-  filter(item2 != "whitemal") %>%
-  filter(item2 != "negro") %>%
-  filter(item2 != "white") %>%
-  filter(item2 != "color") %>%
-  filter(item2 != "south") %>%
-  filter(item2 != "southern") %>%
-  top_n(6) %>%
-  ungroup() %>%
-  mutate(item2 = reorder(item2, correlation)) %>%
-  mutate(item1 = reorder(item1, correlation)) %>%
-  ggplot(aes(item2, correlation)) +
-  geom_bar(stat = "identity", fill = "#2C4F6B") +
-  xlab("Co-Occurring Word") +
-  facet_wrap(~ item1, scales = "free") +
-  ggtitle("Co-Occurences with Terms for Black Males and White Males \nfrom White Soldiers' Long Responses") +
-  coord_flip() +
-  theme_minimal()
+corr_edgelist <- remove_dups %>% 
+  rename(item1 = X1, item2 = X2) %>% 
+  left_join(word_cors_n, by = c("item1", "item2")) %>% 
+  arrange(-correlation)
 
+# removes the numbers 
+number_list <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15")
+corr_edgelist_w <- corr_edgelist %>% 
+  rename(source = item1, target = item2, weight = correlation) %>%  
+  filter(!(source %in% number_list) & !(target %in% number_list)) 
+
+# quick look at the network 
 set.seed(2016)
-word_cors_78 %>%
-  filter(correlation > .2) %>%
+corr_edgelist_w %>%
+  filter(weight > .1) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
-  geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
-  geom_node_point(color = "#2C4F6B", size = 5) +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  ggtitle("Co-Occurences of Words from White Soldiers' Long \nResponses at the 15 percent Threshold") +
+  geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
+  geom_node_point(color = "#E57200", size = 5) +
+  #geom_node_text(aes(label = name), repel = TRUE) +
+  ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 10% Threshold") +
   theme_void()
+
+write_csv(corr_edgelist_w, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_w.csv")
+
 ```
 
-### Short Responses
+```{r}
 
-We complete the same unionized-analysis above but using only short-response data from white soldiers. We are unable to get enough data to create plots for the two different groups of white soldiers: pro-segregation and anti-segregation. The following analysis reflects terms used in the entire group of white soldiers.
+comb_edgelist_n <- corr_edgelist_n %>% 
+  mutate(group = "black")
 
-```{r short, echo = FALSE, message=FALSE, warning=FALSE}
+comb_edgelist_w <- corr_edgelist_w %>% 
+  mutate(group = "white")
 
-# for v against -------------------------------------------
-# white for seg (w4)
+#comb_edgelist_nw 
 
-# row_w4_words <- text77_df %>%
-#   filter(outfits == "['They should be in separate outfits']") %>%
-#   mutate(section = row_number()) %>%
-#   filter(section > 0) %>%
-#   unnest_tokens(word, text) %>%
-#   filter(!word %in% stop_words$word) %>%
-#   mutate(word= textstem::lemmatize_words(word)) %>%
-#   mutate(word= wordStem(word))
-# 
-# word_pairs_w4 <- row_w4_words %>%
-#   pairwise_count(word, section, sort = TRUE)
-# 
-# word_cors_w4 <- row_w4_words %>%
-#   group_by(word) %>%
-#   filter(n() >= 20) %>%
-#   pairwise_cor(word, section, sort = TRUE)  %>%
-#   filter(correlation > 0)
-# #visualizes correlation network
-# # word_cors_w4 %>%
-# #   simpleNetwork(fontSize = 12, zoom =T)
-# 
-# # whiteman, negrosoldi
-# word_cors_w4 %>%
-#   filter(item1 %in% c("whitemal", "blackmal")) %>%
-#   group_by(item1) %>%
-#   filter(item2 != "blackmal") %>%
-#   filter(item2 != "whitemal") %>%
-#   filter(item2 != "negro") %>%
-#   filter(item2 != "white") %>%
-#   filter(item2 != "color") %>%
-#   filter(item2 != "south") %>%
-#   filter(item2 != "southern") %>%
-#   top_n(6) %>%
-#   ungroup() %>%
-#   mutate(item2 = reorder(item2, correlation)) %>%
-#   mutate(item1 = reorder(item1, correlation)) %>%
-#   ggplot(aes(item2, correlation)) +
-#   geom_bar(stat = "identity", fill = "#0E879C") +
-#   xlab("Co-Occurring Word") +
-#   facet_wrap(~ item1, scales = "free") +
-#   ggtitle("Co-Occurences with 'Negro' and 'White' from Pro-segregation White Soldier's Short Comments") +
-#   coord_flip()  +
-#   theme_minimal()
-# 
-# set.seed(2016)
-# word_cors_w4 %>%
-#   filter(correlation > .15) %>%
-#   graph_from_data_frame() %>%
-#   ggraph(layout = "fr") +
-#   geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
-#   geom_node_point(color = "#2C4F6B", size = 5) +
-#   geom_node_text(aes(label = name), repel = TRUE) +
-#   ggtitle("Co-Occurences of Words from White Soldiers' Pro-Segregation \nShort Responses at the 15 percent Threshold") +
-#   theme_void()
-# 
-# # white against segregation (wag)
-# row_wag_words <- text77_df %>%
-#   filter(outfits == "['They should be together in the same outfits']") %>%
-#   mutate(section = row_number()) %>%
-#   filter(section > 0) %>%
-#   unnest_tokens(word, text) %>%
-#   filter(!word %in% stop_words$word) %>%
-#   mutate(word= textstem::lemmatize_words(word)) %>%
-#   mutate(word= wordStem(word))
-# 
-# word_pairs_wag <- row_wag_words %>%
-#   pairwise_count(word, section, sort = TRUE)
-# 
-# word_cors_wag <- row_wag_words %>%
-#   group_by(word) %>%
-#   filter(n() >= 5) %>%
-#   pairwise_cor(word, section, sort = TRUE) %>%
-#   filter(correlation > 0)
-# #visualizes correlation network
-# # word_cors_wag %>%
-# #   simpleNetwork(fontSize = 12, zoom =T)
-# 
-# # there arent any combos
-# 
-# word_cors_wag %>%
-#   filter(item1 %in% c("whitemal", "blackmal")) %>%
-#   group_by(item1) %>%
-#   # filter(item2 != "blackmal") %>%
-#   # filter(item2 != "whitemal") %>%
-#   # filter(item2 != "negro") %>%
-#   # filter(item2 != "white") %>%
-#   # filter(item2 != "color") %>%
-#   # filter(item2 != "south") %>%
-#   # filter(item2 != "southern") %>%
-#   top_n(6) %>%
-#   ungroup() %>%
-#   mutate(item2 = reorder(item2, correlation)) %>%
-#   mutate(item1 = reorder(item1, correlation)) %>%
-#   ggplot(aes(item2, correlation)) +
-#   geom_bar(stat = "identity", fill = "#E6CE3A") +
-#   xlab("Co-Occurring Word") +
-#   facet_wrap(~ item1, scales = "free") +
-#   ggtitle("Co-Occurences with 'Negro' and 'White' from Anti-segregation White Soldier's Short Comments") +
-#   coord_flip()  +
-#   theme_minimal()
-# 
-# set.seed(2016)
-# word_cors_wag %>%
-#   filter(correlation > .15) %>%
-#   graph_from_data_frame() %>%
-#   ggraph(layout = "fr") +
-#   geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
-#   geom_node_point(color = "#E57200", size = 5) +
-#   geom_node_text(aes(label = name), repel = TRUE) +
-#   ggtitle("Co-Occurences of Words from Anti-Segregation White Soldiers' Short Responses at the 15 percent Threshold") +
-#   theme_void()
+comb_edgelist_wn <- comb_edgelist_n %>% 
+  bind_rows(comb_edgelist_w) %>% 
+  arrange(-weight)
 
-row_77_words <- text77_df %>%
-  mutate(section = row_number()) %>%
-  filter(section > 0) %>%
-  unnest_tokens(word, text) %>%
-  filter(!word %in% stop_words$word) %>%
-  mutate(word= textstem::lemmatize_words(word)) %>%
-  mutate(word= wordStem(word))
+write_csv(comb_edgelist_wn, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_nw.csv")
 
-word_pairs_77 <- row_77_words %>%
-  pairwise_count(word, section, sort = TRUE)
-
-word_cors_77 <- row_77_words %>%
-  group_by(word) %>%
-  filter(n() >= 5) %>%
-  pairwise_cor(word, section, sort = TRUE)
-# write.csv(word_cors_77, "clean_white_short_occur.csv")
-#visualizes correlation network
-# word_cors_77 %>%
-#   simpleNetwork(fontSize = 12, zoom =T)
-
-word_cors_77 %>%
-  filter(item1 %in% c("blackmal", "whitemal")) %>%
-  group_by(item1) %>%
-  filter(item2 != "blackmal") %>%
-  filter(item2 != "whitemal") %>%
-  filter(item2 != "negro") %>%
-  filter(item2 != "white") %>%
-  filter(item2 != "color") %>%
-  filter(item2 != "south") %>%
-  filter(item2 != "southern") %>%
-  top_n(6) %>%
-  ungroup() %>%
-  mutate(item2 = reorder(item2, correlation)) %>%
-  mutate(item1 = reorder(item1, correlation)) %>%
-  ggplot(aes(item2, correlation)) +
-  geom_bar(stat = "identity", fill = "#E6CE3A") +
-  xlab("Co-Occurring Word") +
-  facet_wrap(~ item1, scales = "free") +
-  ggtitle("Co-Occurences with 'Negro' and 'White' from White Soldier's Short Comments") +
-  coord_flip()  +
-  theme_minimal()
-
-set.seed(2016)
-word_cors_77 %>%
-  filter(correlation > .15) %>%
-  graph_from_data_frame() %>%
-  ggraph(layout = "fr") +
-  geom_edge_link(aes(edge_alpha = correlation), show.legend = TRUE) +
-  geom_node_point(color = "#E6CE3A", size = 5) +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  ggtitle("Co-Occurences of Words from White Soldiers' Short \nResponses at the 15 percent Threshold") +
-  theme_void()
 ```
+
+
+
+
+
