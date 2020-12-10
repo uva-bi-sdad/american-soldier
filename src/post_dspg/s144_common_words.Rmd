@@ -1,0 +1,158 @@
+---
+title: "Common Words"
+author: "Chase Dawson"
+date: "12/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# load libraries
+library(tidyverse)
+library(ggplot2)
+library(tidytext)
+library(SnowballC)
+library(widyr)
+```
+
+```{r, include=FALSE}
+# read in data
+s144_raw <- read.csv(here::here("data", "post_dspg", "s144_clean_v1.csv"))
+```
+
+## Preprocessing
+
+```{r}
+# load stop words
+data(stop_words)
+
+s144_pre <- s144_raw %>%
+  unnest_tokens(word, q85) %>%
+  anti_join(stop_words) %>%
+  mutate(word = wordStem(word))
+
+s144_pre <- s144_pre %>%
+  group_by(id) %>%
+  summarize(q85 = str_c(word, collapse = " ")) %>%
+  ungroup()
+
+s144_f_words <- s144_pre %>%
+  unnest_tokens(word, q85)
+```
+
+## Some Initial Stats
+
+## Response Length Distribution (Before Preprocessing)
+
+```{r}
+s144_raw_count_per_response <- s144_raw %>%
+  unnest_tokens(word, q85) %>%
+  group_by(id) %>%
+  count()
+
+s144_raw_count_per_response %>%
+  ggplot(aes(x = n)) + 
+    geom_histogram() + 
+    labs(title = "Distribution of Response Lengths",
+       x = "Number of Words in Response",
+       y = "Number of Responses")
+```
+
+## Average Response Length (Before Preprocessing)
+
+```{r}
+mean(s144_raw_count_per_response$n)
+```
+
+## Response Length Distribution (After Preprocessing)
+
+```{r}
+word_count_per_response <- s144_f_words %>% 
+  group_by(id) %>%
+  count()
+
+word_count_per_response %>%
+  ggplot(aes(x = n)) + 
+  geom_histogram() + 
+  labs(title = "Distribution of Response Lengths",
+       x = "Number of Words in Response",
+       y = "Number of Responses")
+```
+
+### Average Response Length (After Preprocessing):
+
+```{r}
+mean(word_count_per_response$n)
+```
+
+
+## Common Words
+
+```{r cars}
+
+s144_f_word_counts <- s144_f_words %>%
+  group_by(word) %>% 
+  count() %>% 
+  arrange(desc(n)) %>%
+  rename(count = n) %>%
+  ungroup()
+
+s144_f_word_counts
+```
+```{r}
+s144_f_word_counts %>%
+  mutate(word = fct_reorder(word, desc(count))) %>%
+  slice_max(count, n = 10) %>%
+  ggplot(., aes(x = word, y = count)) + 
+    geom_bar(stat = "identity")
+```
+
+## Common Bigrams
+
+```{r}
+s144_bigrams <- s144_pre %>%
+  unnest_tokens(bigram, q85, token = "ngrams", n = 2)
+
+bigram_counts <- s144_bigrams %>%
+  count(bigram, sort = TRUE)
+
+bigram_counts
+```
+```{r, include=TRUE}
+bigram_counts %>%
+  mutate(bigram = fct_reorder(bigram, desc(n))) %>%
+  slice_max(n, n = 10) %>%
+  ggplot(., aes(x = bigram, y = n)) +
+    geom_bar(stat = "identity") + 
+    theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) + 
+    labs(title = "S144 Bigram Appearances",
+         x = "Bigram",
+         y = "Count")
+```
+
+## Common Co-Occurences
+
+```{r}
+word_pairs <- s144_pre %>%
+  unnest_tokens(word, q85) %>%
+  pairwise_count(word, id, sort = TRUE, upper = FALSE) %>%
+  unite(co_occurence, item1, item2, sep = " ")
+
+word_pairs
+```
+
+```{r}
+word_pairs %>%
+  mutate(co_occurence = fct_reorder(co_occurence, desc(n))) %>%
+  slice_max(n, n = 10) %>%
+  ggplot(., aes(x = co_occurence, y = n)) + 
+    geom_bar(stat = "identity") +
+    theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) + 
+    labs(title = "S144 Co-Occurence Appearances",
+         x = "Co-Occurence",
+         y = "Count")
+    
+```
