@@ -1,0 +1,31 @@
+---
+title: "S144 Analysis"
+author: "Chase Dawson"
+date: "2/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidytext)
+```
+
+```{r}
+# libraries
+s144 <- read.csv(here::here("data", "post_dspg", "s144_clean_v1.csv"))
+nrow(s144)
+```
+
+### Average Response Length
+
+```{r}
+tmp <- s144 %>% 
+  unnest_tokens(word, q85) %>%
+  group_by(id) %>%
+  count() 
+mean(tmp$n)
+```
+
+
+
