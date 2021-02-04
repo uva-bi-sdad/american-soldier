@@ -32,7 +32,7 @@ library(stringi)
 library(igraph)
 library(ggraph)
 library(tidygraph)
-
+library("rgexf")
 
 # set uva colors 
 colors <- c("#e57200", "#232d4b")
@@ -71,7 +71,7 @@ textn_df
 # for black soldiers we have: 
 1. a longer commentary question on the general survey
 
-```{r unions, echo = FALSE, message=FALSE, warning=FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 
 # this takes the long response for BLACK soldiers and tokenizes the df 
 row_n_words <- textn_df %>%
@@ -260,9 +260,9 @@ comb_edgelist_wn %>%
   filter(weight > .1) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
-  geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
-  geom_node_point(color = "#E57200", size = 2) +
-  #geom_node_text(aes(label = name), repel = TRUE) +
+  geom_edge_link(aes(edge_alpha = weight, colour = group), show.legend = TRUE) +
+  geom_node_point(color = "#000080", size = 2) +
+  scale_edge_colour_manual(values=c("black" = "#E57200", "white" = "#628ed8"))+
   ggtitle("Co-Occurences of Words from White and Black Soldiers' Long \nResponses at the 10% Threshold") +
   theme_void()
 
@@ -288,6 +288,14 @@ combined_nodelist$auth_score <- authority.score(text_network)$vector
 combined_nodelist$hub_score <- hub.score(text_network)$vector
 combined_nodelist$k_core <- coreness(text_network)
 
+# to read the graph into gephi with weighted edges AND edge attributes 
+# we have to convert the file into a gexf object like this: 
+edgelist_simplified <- comb_edgelist_wn %>% select(source, target) %>% rename(Source = source, Target = target)
+edgelist_attributes <- comb_edgelist_wn %>% select(weight, group) %>% rename(Weight = weight, Group = group)
+gexf_file <- write.gexf(nodes=combined_nodelist, edges=edgelist_simplified, edgesAtt=edgelist_attributes, 
+                        output = "~/git/american-soldier/data/post_dspg/network.gexf")
+
+# and then save the edgelist and nodelist 
 write_csv(combined_nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_wb_nodes.csv")
 write_csv(comb_edgelist_wn, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_wb_edges.csv")
 
