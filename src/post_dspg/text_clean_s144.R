@@ -6,7 +6,7 @@ s144 <- read.csv(here::here("data", "post_dspg", "Survey_144_export.csv"))
 
 # unite S144.Q85.F and S144.Q85.C
 s144 <- s144 %>% 
-  unite(q85, S144.Q85.F, S144.Q85.C, sep = " ", na.rm = TRUE)
+  unite(q85, S144.Q85.F, S144.Q85.C, Unnamed..6, sep = " ", na.rm = TRUE)
 
 
 ## handling unclear tags ##
@@ -42,6 +42,18 @@ delete.rm2 <- "\\[deletion\\]|\\[\\/deletion\\]"
 s144 <- s144 %>% 
   mutate(q85 = str_replace_all(q85, delete.rm, ""), 
          q85 = str_replace_all(q85, delete.rm2, ""))
+
+# convert to lower case
+s144 <- s144 %>%
+  mutate(q85 = tolower(q85))
+
+# remove punctuation
+# remove extra spacing
+# remove newlines
+s144 <- s144 %>%
+  mutate(q85 = str_replace_all(q85, "[^\\w\\s]", "")) %>% # remove punc
+  mutate(q85 = str_replace_all(q85, "[\r\n]", " ")) %>% # remove newlines and carriage returns
+  mutate(q85 = str_replace_all(q85, "\\s\\s+", " "))# remove extra spacing
 
 s144 <- s144 %>%
   rename(id = X)
