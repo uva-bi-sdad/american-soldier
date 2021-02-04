@@ -1,0 +1,294 @@
+---
+title: "Common Words"
+author: "Chase Dawson"
+date: "12/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# load libraries
+library(tidyverse)
+library(ggplot2)
+library(tidytext)
+library(SnowballC)
+library(widyr)
+
+# read in data
+s144_raw <- read.csv(here::here("data", "post_dspg", "s144_clean_v1.csv"))
+s144_raw
+```
+
+```{r}
+
+
+# load stop words
+data(stop_words)
+
+s144_clean <- s144_raw %>%
+  mutate(text = as.character(q85)) %>% 
+  mutate(section = row_number()) %>% 
+  select(id, section, text) %>% 
+  #filter(section > 0) %>%
+  mutate(text = ifelse(str_detect(text, "\\b(?i)(u.s.)\\b"), "usa", text)) %>%
+  mutate(text = ifelse(str_detect(text, "\\b(?i)(don‚äôt)\\b"), "don't", text)) %>%
+  unnest_tokens(word, text) %>%
+  filter(!word %in% stop_words$word) %>%
+  mutate(word= textstem::lemmatize_words(word)) %>%
+  mutate(word= wordStem(word)) 
+
+# cleans all of the stemming to make the visuals more interpretable 
+s144_clean <- s144_clean %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(bu)\\b"), "bus", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(segreg)\\b"), "segregation", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(discrimin)\\b"), "discrimination", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(separ)\\b"), "separate", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(divis)\\b"), "division", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(emancip)\\b"), "emancipation", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(democraci)\\b"), "democracy", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(privedlag|privileg)\\b"), "privilege", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(realiz)\\b"), "realize", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackmal)\\b"), "black-man", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitemal)\\b"), "white-man", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackfemal)\\b"), "black-woman", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitefemal)\\b"), "white-woman", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(manpow)\\b"), "manpower", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(southern)\\b"), "south", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(northern)\\b"), "north", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(american|u.s.a|usa)\\b"), "america", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(approv)\\b"), "approve", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(forc)\\b"), "force", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(ignor)\\b"), "ignore", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(germani)\\b"), "german", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(jap)\\b"), "japan", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(divid)\\b"), "divide", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(hatr)\\b"), "hatred", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(rememb)\\b"), "remember", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(liberti)\\b"), "liberty", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(px|p.x)\\b"), "post-exchange", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(polic)\\b"), "police", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(mp|m.p)\\b"), "military-police", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(educ)\\b"), "educate", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(intellig)\\b"), "intelligence", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(defens)\\b"), "defense", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(practic)\\b"), "practice", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(volunt)\\b"), "volunteer", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(futur)\\b"), "future", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(enemi)\\b"), "enemies", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(polici)\\b"), "policy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(constitut)\\b"), "constitution", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(countri)\\b"), "country", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(armi)\\b"), "army", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(offic)\\b"), "office", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(servic)\\b"), "service", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(dai)\\b"), "day", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(chanc)\\b"), "chance", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(compani)\\b"), "company", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(condit)\\b"), "condition", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(leav)\\b"), "leave", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(pai)\\b"), "pay", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(famili)\\b"), "family", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(abil)\\b"), "ability", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(chang)\\b"), "change", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(prejudic)\\b"), "prejudice", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(monei)\\b"), "money", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(not't)\\b"), "not", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(suppos)\\b"), "suppose", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(victori)\\b"), "victory", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(opportun)\\b"), "opportunity", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(serv)\\b"), "serve", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(troubl)\\b"), "trouble", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(recreat)\\b"), "recreate", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(advanc)\\b"), "advance", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(peopl)\\b"), "people", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(marri)\\b"), "marry", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(prai)\\b"), "pray", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(ag)\\b"), "age", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(receiv)\\b"), "receive", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(promot)\\b"), "promotion", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(mechan)\\b"), "mechanic", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(discharg)\\b"), "discharge", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(infrantri)\\b"), "infrantry", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(moral)\\b"), "morale", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(carri)\\b"), "carry", word)) %>% 
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(squar)\\b"), "square", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(econom)\\b"), "economy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(justic)\\b"), "justice", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(singl)\\b"), "single", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(polit)\\b"), "politics", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(facil)\\b"), "facility", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(dam)\\b"), "damn", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(regul)\\b"), "regulate", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(releas)\\b"), "release", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(fairli)\\b"), "fairly", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(appli)\\b"), "apply", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(bui)\\b"), "buy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(happi)\\b"), "happy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(alik)\\b"), "alike", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(principl)\\b"), "principle", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(plai)\\b"), "play", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(enjoi)\\b"), "enjoy", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(com|comm|non-com|non-comms|noncom|noncoms|noncomm|noncomms)\\b"), 
+                       "company", word)) %>%
+  mutate(word = ifelse(str_detect(word, "\\b(?i)(sacrific)\\b"), "sacrifice", word)) 
+
+# count words co-occuring within sections
+word_pairs <- s144_clean %>%
+  pairwise_count(word, section, sort = TRUE)
+
+# filters the words not freq used 
+word_cors_n <- s144_clean %>%
+  group_by(word) %>%
+  filter(n() >= 20) %>%
+  pairwise_cor(word, section, sort = TRUE) %>%
+  filter(correlation > .15)
+
+# de-duplicates the edgelist
+remove_dups <- igraph::simplify(graph.data.frame(word_cors_n, directed = FALSE), 
+                              edge.attr.comb = igraph_opt("edge.attr.comb"),
+                              remove.loops = FALSE)
+remove_dups <- data.frame(as_edgelist(remove_dups, names = TRUE))
+
+corr_edgelist <- remove_dups %>% 
+  rename(item1 = X1, item2 = X2) %>% 
+  left_join(word_cors_n, by = c("item1", "item2")) %>% 
+  arrange(-correlation)
+
+# removes the numbers 
+number_list <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15")
+corr_edgelist_n <- corr_edgelist %>% 
+  rename(source = item1, target = item2, weight = correlation) %>%  
+  filter(!(source %in% number_list) & !(target %in% number_list)) 
+
+# quick look at the network 
+set.seed(2016)
+corr_edgelist_n %>%
+  filter(weight > .15) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
+  geom_node_point(color = "#E57200", size = 4) +
+  #geom_node_text(aes(label = name), repel = TRUE) +
+  ggtitle("Co-Occurences of Words from Black Soldiers' for \nSurvey 144 at the 10% Threshold") +
+  theme_void()
+
+
+```
+
+```{r}
+corr_edgelist_n
+```
+
+```{r}
+
+# de-duplicates the edgelist
+network_144 <- igraph::simplify(graph.data.frame(corr_edgelist_n, directed = FALSE), 
+                              edge.attr.comb = igraph_opt("edge.attr.comb"),
+                              remove.loops = FALSE)
+
+nodelist <- data.frame(id = c(1:(igraph::vcount(network_144))), node_id = igraph::V(network_144)$name)
+nodelist <- nodelist %>% select(-id) %>% rename(id = node_id)
+nodelist$label <- nodelist$id
+  
+louvain <- cluster_louvain(network_144)
+fstgrdy <- fastgreedy.community(network_144)
+nodelist$louvain_comm <- louvain$membership
+nodelist$fstgrdy_comm <- fstgrdy$membership
+
+nodelist <- s144_clean %>% 
+  count(word) %>% 
+  rename(label = word, 
+         word_count = n) %>% 
+  arrange(-word_count) %>% 
+  right_join(nodelist, by = "label") %>% 
+  select(id, label, word_count, everything())
+
+nodelist
+
+write_csv(corr_edgelist_n, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc144long_b_edgelist.csv")
+write_csv(nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc144long_b_nodelist.csv")
+
+```
+
+
+```{r}
+edgelist32 <- read_csv("/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_bw_edgelist.csv")
+s32_counts <- read_csv("/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/s32_counts.csv")
+s32_counts <- s32_counts 
+
+edgelist32 <- edgelist32 %>% 
+  filter(group == "black") %>% 
+  mutate(survey = ifelse(str_detect(group, "black"), "S32", "S144")) %>% 
+  select(-group)
+
+combined32_144 <- corr_edgelist_n %>% 
+  mutate(survey = "S144") %>% 
+  bind_rows(edgelist32) %>% 
+  arrange(-weight)
+
+# de-duplicates the edgelist
+network_32144 <- igraph::simplify(graph.data.frame(combined32_144, directed = FALSE), 
+                              edge.attr.comb = igraph_opt("edge.attr.comb"),
+                              remove.loops = FALSE)
+
+comb_nodelist <- data.frame(id = c(1:(igraph::vcount(network_32144))), node_id = igraph::V(network_32144)$name)
+comb_nodelist <- comb_nodelist %>% select(-id) %>% rename(id = node_id)
+comb_nodelist$label <- comb_nodelist$id
+  
+louvain <- cluster_louvain(network_32144)
+fstgrdy <- fastgreedy.community(network_32144)
+comb_nodelist$louvain_comm <- louvain$membership
+comb_nodelist$fstgrdy_comm <- fstgrdy$membership
+
+comb_nodelist
+
+comb_nodelist <- s144_clean %>% 
+  count(word) %>% 
+  rename(label = word, 
+         count_144 = n) %>% 
+  arrange(-count_144) %>% 
+  right_join(comb_nodelist, by = "label") %>% 
+  select(id, label, count_144, everything())
+
+comb_nodelist <- comb_nodelist %>% 
+  left_join(s32_counts %>% 
+              rename(label = word,
+                     count_32 = n), 
+            by = "label") %>% 
+  mutate(count_32 = replace_na(count_32, 0),
+         count_144 = replace_na(count_144, 0),
+         sum_32_144 = count_32 + count_144,
+         diff_32_144 = abs(count_32 - count_144),
+         which_more = if_else(count_32 > count_144, "S32", "S144", missing = NULL)) %>% 
+  select(id, label, count_32, count_144, sum_32_144, diff_32_144, which_more, everything()) %>% 
+  arrange(-sum_32_144)
+
+comb_nodelist
+
+write_csv(combined32_144, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32144_b_edgelist.csv")
+write_csv(comb_nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32144_b_nodelist.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

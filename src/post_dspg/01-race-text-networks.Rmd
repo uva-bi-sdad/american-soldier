@@ -1,7 +1,5 @@
 ---
 title: "Text-Network Analysis of White & Black Soldiers"
-description: "This page provides sentiment of race relations from Survey 32."
-tags: ["R", "sna", "race relations"]
 weight: 1
 output:
   html_document:
@@ -17,72 +15,52 @@ h1, h2, h3 {
 }
 ```
 
-
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 rm(list = ls()) 
 
 knitr::opts_chunk$set(echo = F, fig.width = 8, fig.height = 6)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) ;
 
-library(stringi)
-library(data.table)
+# load libraries
 library(tidyverse)
+library(ggplot2)
 library(tidytext)
-library(textstem)
-library(readxl)
 library(SnowballC)
-library(rvest)
-library(tm)
-library(topicmodels)
-library(tidyr)
-library(textdata)
-library(wordcloud)
-library(RColorBrewer)
+library(widyr)
+library(data.table)
+library(stringi)
 library(igraph)
 library(ggraph)
-library(widyr)
-library(stringr)
-library(networkD3)
-library(RColorBrewer)
-library(usmap) 
-library(viridis)
-library(ggplot2)
-library(BTM)
-library(udpipe)
-library(networkD3)
-library(topicmodels)
-library(concaveman)
-library(textplot)
-library(stopwords)
-library(dplyr)
-# to install ggradar, run the line commented out below
-#devtools::install_github("ricardo-bion/ggradar", dependencies = TRUE)
-#library(ggradar)
-library(tibble)
-library(scales)
-library(fmsb)
-library(sentimentr)
-library(syn)
+library(tidygraph)
 
-data(stop_words)
+
+# set uva colors 
 colors <- c("#e57200", "#232d4b")
+
+# load data 
+data(stop_words)
 collapse <- fread("/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/dictionary/collapse_words.csv", sep = ",")
-#collapse <- fread("~/git/dspg2020amsoldier/data/dictionary/collapse_words.csv", sep = ",")
-collapse <- mutate(collapse, original = paste("\\b", original,"\\b", sep = "")) #so that stringr doesn't pick up on instances where it is part of another word
+#so that stringr doesn't pick up on instances where it is part of another word
+collapse <- mutate(collapse, original = paste("\\b", original,"\\b", sep = "")) 
 #replace with collapsed words
 source(here::here("src", "load_data.R"))
 source(here::here("src", "sentiment_analysis.R"))
 source(here::here("src", "word_selection.R"))
 
-data$long <- stri_replace_all_regex(data$long, collapse$original, collapse$collapse_union, vectorize_all = FALSE)
-data$outfits_comment <- stri_replace_all_regex(data$outfits_comment, collapse$original, collapse$collapse_union, vectorize_all = FALSE)
+data$long <- stri_replace_all_regex(data$long, collapse$original, 
+                                    collapse$collapse_union, vectorize_all = FALSE)
+data$outfits_comment <- stri_replace_all_regex(data$outfits_comment, collapse$original, 
+                                               collapse$collapse_union, vectorize_all = FALSE)
 
 S32N <- filter(data, racial_group == "black")
 S32W <- filter(data, racial_group == "white")
 
-text77_df <- tibble(row = 1:nrow(S32W), text = S32W$outfits_comment, outfits = S32W$outfits) #Written response to "should soldiers be in separate outfits?"
-text78_df <- tibble(row = 1:nrow(S32W), text = S32W$long) #Written response on overall thoughts on the survey
+#Written response to "should soldiers be in separate outfits?"
+text77_df <- tibble(row = 1:nrow(S32W), text = S32W$outfits_comment, outfits = S32W$outfits) 
+#Written response on overall thoughts on the survey
+text78_df <- tibble(row = 1:nrow(S32W), text = S32W$long) 
 textn_df <- tibble(row = 1:nrow(S32N), text = S32N$long)
+textn_df
 ```
 
 # for white soldiers we have:
@@ -95,7 +73,7 @@ textn_df <- tibble(row = 1:nrow(S32N), text = S32N$long)
 
 ```{r unions, echo = FALSE, message=FALSE, warning=FALSE}
 
-# this takes the long response for black soldiers and tokenizes the df 
+# this takes the long response for BLACK soldiers and tokenizes the df 
 row_n_words <- textn_df %>%
   mutate(section = row_number()) %>%
   filter(section > 0) %>%
@@ -107,82 +85,8 @@ row_n_words <- textn_df %>%
   mutate(word= wordStem(word))
 
 # cleans all of the stemming to make the visuals more interpretable 
-row_n_words <- row_n_words %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(bu)\\b"), "bus", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(segreg)\\b"), "segregation", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(discrimin)\\b"), "discrimination", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(separ)\\b"), "separate", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(divis)\\b"), "division", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(emancip)\\b"), "emancipation", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(democraci)\\b"), "democracy", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(privedlag|privileg)\\b"), "privilege", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(realiz)\\b"), "realize", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackmal)\\b"), "black-man", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitemal)\\b"), "white-man", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackfemal)\\b"), "black-woman", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitefemal)\\b"), "white-woman", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(manpow)\\b"), "manpower", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(southern)\\b"), "south", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(northern)\\b"), "north", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(american|u.s.a|usa)\\b"), "america", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(approv)\\b"), "approve", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(forc)\\b"), "force", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(ignor)\\b"), "ignore", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(germani)\\b"), "german", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(jap)\\b"), "japan", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(divid)\\b"), "divide", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(hatr)\\b"), "hatred", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(rememb)\\b"), "remember", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(liberti)\\b"), "liberty", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(px|p.x)\\b"), "post-exchange", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(polic)\\b"), "police", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(mp|m.p)\\b"), "military-police", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(educ)\\b"), "educate", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(intellig)\\b"), "intelligence", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(defens)\\b"), "defense", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(practic)\\b"), "practice", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(volunt)\\b"), "volunteer", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(futur)\\b"), "future", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(enemi)\\b"), "enemies", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(polici)\\b"), "policy", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(constitut)\\b"), "constitution", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(countri)\\b"), "country", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(armi)\\b"), "army", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(offic)\\b"), "office", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(servic)\\b"), "service", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(dai)\\b"), "day", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(chanc)\\b"), "chance", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(compani)\\b"), "company", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(condit)\\b"), "condition", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(leav)\\b"), "leave", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(pai)\\b"), "pay", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(famili)\\b"), "family", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(abil)\\b"), "ability", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(chang)\\b"), "change", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(prejudic)\\b"), "prejudice", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(monei)\\b"), "money", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(not't)\\b"), "not", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(suppos)\\b"), "suppose", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(victori)\\b"), "victory", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(opportun)\\b"), "opportunity", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(serv)\\b"), "serve", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(troubl)\\b"), "trouble", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(recreat)\\b"), "recreate", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(advanc)\\b"), "advance", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(peopl)\\b"), "people", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(marri)\\b"), "marry", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(prai)\\b"), "pray", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(ag)\\b"), "age", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(receiv)\\b"), "receive", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(promot)\\b"), "promotion", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(mechan)\\b"), "mechanic", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(discharg)\\b"), "discharge", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(infrantri)\\b"), "infrantry", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(moral)\\b"), "morale", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(carri)\\b"), "carry", word)) #%>% 
-  #count(word) %>% 
-  #arrange(-n)
+source(here::here("src", "unstem_words.R"))
+row_n_words <- unstem_words(row_n_words)
 
 # count words co-occuring within sections
 word_pairs_n <- row_n_words %>%
@@ -212,6 +116,28 @@ corr_edgelist_n <- corr_edgelist %>%
   rename(source = item1, target = item2, weight = correlation) %>%  
   filter(!(source %in% number_list) & !(target %in% number_list)) 
 
+# pull out the nodelist 
+text_network <- graph.data.frame(corr_edgelist_n, directed = FALSE)
+black_nodelist <- data.frame(id = c(1:(igraph::vcount(text_network))), name = igraph::V(text_network)$name)
+black_nodelist <- black_nodelist %>% select(-id) %>% rename(id = name) %>% mutate(label = id)
+
+# community detection (using louvain method)
+components <- components(text_network)
+louvain <- cluster_louvain(text_network)
+fstgrdy <- fastgreedy.community(text_network)
+black_nodelist$component <- components$membership
+black_nodelist$louvain_comm <- louvain$membership
+black_nodelist$fstgrdy_comm <- fstgrdy$membership
+
+# centrality metrics 
+black_nodelist$deg_cent <- degree(text_network)
+black_nodelist$wtd_deg_cent <- strength(text_network)
+black_nodelist$eigen_cent <- eigen_centrality(text_network)$vector
+black_nodelist$page_rank <- page_rank(text_network)$vector
+black_nodelist$auth_score <- authority.score(text_network)$vector
+black_nodelist$hub_score <- hub.score(text_network)$vector
+black_nodelist$k_core <- coreness(text_network)
+
 # quick look at the network 
 set.seed(2016)
 corr_edgelist_n %>%
@@ -219,19 +145,20 @@ corr_edgelist_n %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
   geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
-  geom_node_point(color = "#E57200", size = 5) +
+  geom_node_point(color = "#E57200", size = 2) +
   #geom_node_text(aes(label = name), repel = TRUE) +
   ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 10% Threshold") +
   theme_void()
 
-write_csv(corr_edgelist_n, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_n.csv")
+write_csv(black_nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_black_nodes.csv")
+write_csv(corr_edgelist_n, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_black_edges.csv")
 
 ```
 
 
 ```{r unions, echo = FALSE, message=FALSE, warning=FALSE}
 
-# this takes the long response for black soldiers and tokenizes the df 
+# this takes the long response for WHITE soldiers and tokenizes the df 
 row_n_words <- text78_df %>%
   mutate(section = row_number()) %>%
   filter(section > 0) %>%
@@ -243,82 +170,9 @@ row_n_words <- text78_df %>%
   mutate(word= wordStem(word))
 
 # cleans all of the stemming to make the visuals more interpretable 
-row_n_words <- row_n_words %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(bu)\\b"), "bus", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(segreg)\\b"), "segregation", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(discrimin)\\b"), "discrimination", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(separ)\\b"), "separate", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(divis)\\b"), "division", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(emancip)\\b"), "emancipation", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(democraci)\\b"), "democracy", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(privedlag|privileg)\\b"), "privilege", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(realiz)\\b"), "realize", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackmal)\\b"), "black-man", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitemal)\\b"), "white-man", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(blackfemal)\\b"), "black-woman", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(whitefemal)\\b"), "white-woman", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(manpow)\\b"), "manpower", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(southern)\\b"), "south", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(northern)\\b"), "north", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(american|u.s.a|usa)\\b"), "america", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(approv)\\b"), "approve", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(forc)\\b"), "force", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(ignor)\\b"), "ignore", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(germani)\\b"), "german", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(jap)\\b"), "japan", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(divid)\\b"), "divide", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(hatr)\\b"), "hatred", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(rememb)\\b"), "remember", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(liberti)\\b"), "liberty", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(px|p.x)\\b"), "post-exchange", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(polic)\\b"), "police", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(mp|m.p)\\b"), "military-police", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(educ)\\b"), "educate", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(intellig)\\b"), "intelligence", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(defens)\\b"), "defense", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(practic)\\b"), "practice", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(volunt)\\b"), "volunteer", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(futur)\\b"), "future", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(enemi)\\b"), "enemies", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(polici)\\b"), "policy", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(constitut)\\b"), "constitution", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(countri)\\b"), "country", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(armi)\\b"), "army", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(offic)\\b"), "office", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(servic)\\b"), "service", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(dai)\\b"), "day", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(chanc)\\b"), "chance", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(compani)\\b"), "company", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(condit)\\b"), "condition", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(leav)\\b"), "leave", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(pai)\\b"), "pay", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(famili)\\b"), "family", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(abil)\\b"), "ability", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(chang)\\b"), "change", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(prejudic)\\b"), "prejudice", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(monei)\\b"), "money", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(not't)\\b"), "not", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(suppos)\\b"), "suppose", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(victori)\\b"), "victory", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(opportun)\\b"), "opportunity", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(serv)\\b"), "serve", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(troubl)\\b"), "trouble", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(recreat)\\b"), "recreate", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(advanc)\\b"), "advance", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(peopl)\\b"), "people", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(marri)\\b"), "marry", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(prai)\\b"), "pray", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(ag)\\b"), "age", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(receiv)\\b"), "receive", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(promot)\\b"), "promotion", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(mechan)\\b"), "mechanic", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(discharg)\\b"), "discharge", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(infrantri)\\b"), "infrantry", word)) %>% 
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(complet)\\b"), "complete", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(moral)\\b"), "morale", word)) %>%
-  mutate(word = ifelse(str_detect(word, "\\b(?i)(carri)\\b"), "carry", word)) #%>% 
-  #count(word) %>% 
-  #arrange(-n)
+# cleans all of the stemming to make the visuals more interpretable 
+source(here::here("src", "unstem_words.R"))
+row_n_words <- unstem_words(row_n_words)
 
 # count words co-occuring within sections
 word_pairs_n <- row_n_words %>%
@@ -348,6 +202,28 @@ corr_edgelist_w <- corr_edgelist %>%
   rename(source = item1, target = item2, weight = correlation) %>%  
   filter(!(source %in% number_list) & !(target %in% number_list)) 
 
+# pull out the nodelist 
+text_network <- graph.data.frame(corr_edgelist_w, directed = FALSE)
+white_nodelist <- data.frame(id = c(1:(igraph::vcount(text_network))), name = igraph::V(text_network)$name)
+white_nodelist <- white_nodelist %>% select(-id) %>% rename(id = name) %>% mutate(label = id)
+
+# community detection (using louvain method)
+components <- components(text_network)
+louvain <- cluster_louvain(text_network)
+fstgrdy <- fastgreedy.community(text_network)
+white_nodelist$component <- components$membership
+white_nodelist$louvain_comm <- louvain$membership
+white_nodelist$fstgrdy_comm <- fstgrdy$membership
+
+# centrality metrics 
+white_nodelist$deg_cent <- degree(text_network)
+white_nodelist$wtd_deg_cent <- strength(text_network)
+white_nodelist$eigen_cent <- eigen_centrality(text_network)$vector
+white_nodelist$page_rank <- page_rank(text_network)$vector
+white_nodelist$auth_score <- authority.score(text_network)$vector
+white_nodelist$hub_score <- hub.score(text_network)$vector
+white_nodelist$k_core <- coreness(text_network)
+
 # quick look at the network 
 set.seed(2016)
 corr_edgelist_w %>%
@@ -355,30 +231,65 @@ corr_edgelist_w %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
   geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
-  geom_node_point(color = "#E57200", size = 5) +
+  geom_node_point(color = "#E57200", size = 2) +
   #geom_node_text(aes(label = name), repel = TRUE) +
-  ggtitle("Co-Occurences of Words from Black Soldiers' Long \nResponses at the 10% Threshold") +
+  ggtitle("Co-Occurences of Words from White Soldiers' Long \nResponses at the 10% Threshold") +
   theme_void()
 
-write_csv(corr_edgelist_w, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_w.csv")
+write_csv(white_nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_white_nodes.csv")
+write_csv(corr_edgelist_w, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_white_edges.csv")
 
 ```
 
 ```{r}
 
+# add variable names to the edgelists 
 comb_edgelist_n <- corr_edgelist_n %>% 
   mutate(group = "black")
-
 comb_edgelist_w <- corr_edgelist_w %>% 
   mutate(group = "white")
 
-#comb_edgelist_nw 
-
+# rbind the edgelists together  
 comb_edgelist_wn <- comb_edgelist_n %>% 
   bind_rows(comb_edgelist_w) %>% 
   arrange(-weight)
 
-write_csv(comb_edgelist_wn, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32long_nw.csv")
+# quick look at the network 
+set.seed(2016)
+comb_edgelist_wn %>%
+  filter(weight > .1) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = weight), show.legend = TRUE) +
+  geom_node_point(color = "#E57200", size = 2) +
+  #geom_node_text(aes(label = name), repel = TRUE) +
+  ggtitle("Co-Occurences of Words from White and Black Soldiers' Long \nResponses at the 10% Threshold") +
+  theme_void()
+
+# pull out the nodelist 
+text_network <- graph.data.frame(comb_edgelist_wn, directed = FALSE)
+combined_nodelist <- data.frame(id = c(1:(igraph::vcount(text_network))), name = igraph::V(text_network)$name)
+combined_nodelist <- combined_nodelist %>% select(-id) %>% rename(id = name) %>% mutate(label = id)
+
+# community detection (using louvain method)
+components <- components(text_network)
+louvain <- cluster_louvain(text_network)
+#fstgrdy <- fastgreedy.community(text_network)
+combined_nodelist$component <- components$membership
+combined_nodelist$louvain_comm <- louvain$membership
+#combined_nodelist$fstgrdy_comm <- fstgrdy$membership
+
+# centrality metrics 
+combined_nodelist$deg_cent <- degree(text_network)
+combined_nodelist$wtd_deg_cent <- strength(text_network)
+combined_nodelist$eigen_cent <- eigen_centrality(text_network)$vector
+combined_nodelist$page_rank <- page_rank(text_network)$vector
+combined_nodelist$auth_score <- authority.score(text_network)$vector
+combined_nodelist$hub_score <- hub.score(text_network)$vector
+combined_nodelist$k_core <- coreness(text_network)
+
+write_csv(combined_nodelist, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_wb_nodes.csv")
+write_csv(comb_edgelist_wn, "/sfs/qumulo/qhome/kb7hp/git/american-soldier/data/post_dspg/cooc32l_wb_edges.csv")
 
 ```
 
